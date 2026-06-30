@@ -252,6 +252,22 @@ h2{font-family:var(--font-display);font-size:26px;font-weight:700;margin:8px 0 2
 .ai-coach-body{font-size:13.5px;line-height:1.5;}
 .ai-coach-text{color:var(--text);white-space:pre-wrap;}
 .ai-coach-error{color:var(--danger);}
+.meal-suggest-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.meal-suggest-table th{text-align:left;color:var(--muted);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;padding:0 6px 8px;}
+.meal-suggest-table td{padding:8px 6px;border-top:1px solid var(--border);vertical-align:middle;}
+.meal-suggest-table td:first-child{font-weight:600;}
+.meal-suggest-table td:not(:first-child):not(:last-child){font-family:var(--font-mono);color:var(--muted);white-space:nowrap;}
+
+/* Photo scan */
+.file-btn{display:inline-flex;align-items:center;justify-content:center;width:auto;padding:11px 20px;}
+
+/* Workout plan */
+.plan-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+.plan-item{display:flex;align-items:center;justify-content:space-between;padding:10px 4px;border-bottom:1px solid var(--border);}
+.plan-item:last-child{border-bottom:none;}
+.plan-name{font-size:14px;}
+.plan-name.plan-done{color:var(--muted);text-decoration:line-through;}
+.plan-setsreps{font-size:12px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap;}
 
 /* Reminders */
 .reminder-row{padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}

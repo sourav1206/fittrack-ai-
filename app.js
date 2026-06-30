@@ -17,7 +17,8 @@ function defaultState() {
     weightHistory: [],
     days: {}, // dateKey -> { meals:[], workouts:[], waterGlasses:0 }
     geminiKey: '',
-    aiCoach: { date: null, text: '', error: '' },
+    aiCoach: { date: null, items: null, error: '' },
+    workoutPlanProgress: {}, // dateKey -> { exerciseIndex: true }
     reminders: {
       waterEnable: false, waterMinutes: 60,
       mealsEnable: false,
@@ -354,11 +355,70 @@ function remainingMacros() {
 function buildCoachPrompt() {
   const p = state.profile;
   const rem = remainingMacros();
-  return `I follow a ${p.diet} diet and my goal is ${p.goal}. For the rest of today I have roughly ${rem.calories} kcal, ${rem.protein}g protein, ${rem.carbs}g carbs, and ${rem.fat}g fat left in my targets. Suggest 2-3 specific meal or snack ideas that fit these remaining macros. Keep it under 80 words total, plain text only, no markdown.`;
+  return `I follow a ${p.diet} diet and my goal is ${p.goal}. For the rest of today I have roughly ${rem.calories} kcal, ${rem.protein}g protein, ${rem.carbs}g carbs, and ${rem.fat}g fat left in my targets. Suggest 4 to 5 distinct, specific meal or snack ideas that fit within these remaining macros (each on its own, not meant to be eaten together). For each, estimate its own calories and macros.`;
 }
+
+const MEAL_SUGGESTION_SCHEMA = {
+  type: 'ARRAY',
+  items: {
+    type: 'OBJECT',
+    properties: {
+      name: { type: 'STRING' },
+      calories: { type: 'NUMBER' },
+      protein: { type: 'NUMBER' },
+      carbs: { type: 'NUMBER' },
+      fat: { type: 'NUMBER' },
+    },
+    required: ['name', 'calories', 'protein', 'carbs', 'fat'],
+  },
+};
 
 function renderAiCoachBody(html) {
   document.getElementById('aiCoachBody').innerHTML = html;
+}
+
+function renderMealSuggestionsTable(items) {
+  if (!Array.isArray(items) || !items.length) {
+    renderAiCoachBody('<p class="muted small">No suggestions returned. Try refreshing.</p>');
+    return;
+  }
+  const rows = items
+    .map(
+      (m) => `
+      <tr>
+        <td>${escapeHtml(m.name || '')}</td>
+        <td>${Math.round(m.calories || 0)}</td>
+        <td>${Math.round(m.protein || 0)}g</td>
+        <td>${Math.round(m.carbs || 0)}g</td>
+        <td>${Math.round(m.fat || 0)}g</td>
+        <td><button class="mini-btn log-suggestion-btn" data-i="${items.indexOf(m)}">+ Log</button></td>
+      </tr>`
+    )
+    .join('');
+  renderAiCoachBody(`
+    <table class="meal-suggest-table">
+      <thead><tr><th>Idea</th><th>Kcal</th><th>P</th><th>C</th><th>F</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `);
+  document.querySelectorAll('.log-suggestion-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const item = items[Number(btn.dataset.i)];
+      if (!item) return;
+      getDay().meals.push({
+        name: item.name,
+        mealType: 'Suggested',
+        cal: Math.round(item.calories || 0),
+        protein: Math.round(item.protein || 0),
+        carbs: Math.round(item.carbs || 0),
+        fat: Math.round(item.fat || 0),
+        time: new Date().toTimeString().slice(0, 5),
+      });
+      saveState();
+      renderAll();
+      toast(`Logged ${item.name}`);
+    });
+  });
 }
 
 function renderAiCoachState() {
@@ -371,11 +431,11 @@ function renderAiCoachState() {
     renderAiCoachBody(`<p class="ai-coach-error small">${escapeHtml(cached.error)}</p>`);
     return;
   }
-  if (cached.text && cached.date === todayKey()) {
-    renderAiCoachBody(`<p class="ai-coach-text">${escapeHtml(cached.text)}</p>`);
+  if (cached.items && cached.items.length && cached.date === todayKey()) {
+    renderMealSuggestionsTable(cached.items);
     return;
   }
-  renderAiCoachBody('<p class="muted small">No suggestion yet today. Tap Refresh to get one.</p>');
+  renderAiCoachBody('<p class="muted small">No suggestions yet today. Tap Refresh to get some.</p>');
 }
 
 async function fetchAiCoachSuggestion() {
@@ -391,7 +451,11 @@ async function fetchAiCoachSuggestion() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: buildCoachPrompt() }] }],
-        generationConfig: { maxOutputTokens: 300 },
+        generationConfig: {
+          maxOutputTokens: 1024,
+          responseMimeType: 'application/json',
+          responseSchema: MEAL_SUGGESTION_SCHEMA,
+        },
       }),
     });
     if (!res.ok) {
@@ -400,12 +464,13 @@ async function fetchAiCoachSuggestion() {
       throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
     }
     const data = await res.json();
-    const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim() || 'No suggestion returned.';
-    state.aiCoach = { date: todayKey(), text, error: '' };
+    const raw = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+    const items = JSON.parse(raw || '[]');
+    state.aiCoach = { date: todayKey(), items, error: '' };
     saveState();
     renderAiCoachState();
   } catch (err) {
-    state.aiCoach = { date: todayKey(), text: '', error: err.message || 'Could not reach the AI coach. Check your connection and API key.' };
+    state.aiCoach = { date: todayKey(), items: null, error: err.message || 'Could not reach the AI coach. Check your connection and API key.' };
     saveState();
     renderAiCoachState();
   }
@@ -416,7 +481,7 @@ function loadAiCoachOnDashboard() {
     renderAiCoachState();
     return;
   }
-  if (state.aiCoach.date === todayKey() && (state.aiCoach.text || state.aiCoach.error)) {
+  if (state.aiCoach.date === todayKey() && ((state.aiCoach.items && state.aiCoach.items.length) || state.aiCoach.error)) {
     renderAiCoachState();
     return;
   }
@@ -428,7 +493,7 @@ document.getElementById('aiCoachRefreshBtn').addEventListener('click', fetchAiCo
 document.getElementById('saveKeyBtn').addEventListener('click', () => {
   const val = document.getElementById('geminiKeyInput').value.trim();
   state.geminiKey = val;
-  state.aiCoach = { date: null, text: '', error: '' };
+  state.aiCoach = { date: null, items: null, error: '' };
   saveState();
   document.getElementById('geminiKeyInput').value = '';
   renderGeminiKeyStatus();
@@ -440,6 +505,79 @@ document.getElementById('saveKeyBtn').addEventListener('click', () => {
 function renderGeminiKeyStatus() {
   document.getElementById('geminiKeyStatus').textContent = state.geminiKey ? 'Key saved on this device.' : 'No key saved.';
 }
+
+/* ===================== PHOTO FOOD SCAN ===================== */
+const FOOD_SCAN_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    name: { type: 'STRING' },
+    mealType: { type: 'STRING', enum: ['Breakfast', 'Morning Snack', 'Lunch', 'Evening Snack', 'Dinner', 'Pre-workout', 'Post-workout'] },
+    calories: { type: 'NUMBER' },
+    protein: { type: 'NUMBER' },
+    carbs: { type: 'NUMBER' },
+    fat: { type: 'NUMBER' },
+  },
+  required: ['name', 'calories', 'protein', 'carbs', 'fat'],
+};
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('scanPhotoInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const statusEl = document.getElementById('scanPhotoStatus');
+  if (!state.geminiKey) {
+    statusEl.textContent = 'Add your Gemini API key in Settings first.';
+    return;
+  }
+  statusEl.textContent = 'Analyzing photo…';
+  try {
+    const base64 = await fileToBase64(file);
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: file.type || 'image/jpeg', data: base64 } },
+            { text: 'Identify the food in this photo and estimate its total calories and macros (protein, carbs, fat in grams) for the portion shown. Also guess which meal type this most likely is.' },
+          ],
+        }],
+        generationConfig: {
+          maxOutputTokens: 512,
+          responseMimeType: 'application/json',
+          responseSchema: FOOD_SCAN_SCHEMA,
+        },
+      }),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).error?.message || ''; } catch (err) {}
+      throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+    }
+    const data = await res.json();
+    const raw = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+    const result = JSON.parse(raw || '{}');
+    document.getElementById('logFoodName').value = result.name || '';
+    document.getElementById('logCal').value = Math.round(result.calories || 0) || '';
+    document.getElementById('logProtein').value = Math.round(result.protein || 0) || '';
+    document.getElementById('logCarbs').value = Math.round(result.carbs || 0) || '';
+    document.getElementById('logFat').value = Math.round(result.fat || 0) || '';
+    if (result.mealType) document.getElementById('logMealType').value = result.mealType;
+    statusEl.textContent = 'Filled in below — review and tap "Log meal".';
+  } catch (err) {
+    statusEl.textContent = err.message || 'Could not analyze that photo. Try again.';
+  }
+});
 
 /* ===================== FOOD LOG ===================== */
 document.getElementById('logFoodBtn').addEventListener('click', () => {
@@ -507,6 +645,77 @@ function renderMealLog() {
     });
     list.appendChild(li);
   });
+}
+
+/* ===================== WORKOUT PLAN ===================== */
+const WORKOUT_SPLIT_GYM = {
+  0: { label: 'Rest Day', exercises: [] },
+  1: { label: 'Push Day · Chest, Shoulders, Triceps', exercises: ['Barbell Bench Press', 'Overhead Press', 'Incline Dumbbell Press', 'Lateral Raises', 'Triceps Pushdown'] },
+  2: { label: 'Pull Day · Back, Biceps', exercises: ['Deadlift', 'Lat Pulldown', 'Barbell Row', 'Face Pulls', 'Barbell Curl'] },
+  3: { label: 'Leg Day', exercises: ['Back Squat', 'Leg Press', 'Romanian Deadlift', 'Walking Lunges', 'Calf Raises'] },
+  4: { label: 'Upper Body', exercises: ['Incline Bench Press', 'Pull-Ups', 'Dumbbell Shoulder Press', 'Seated Cable Row', 'Hammer Curl'] },
+  5: { label: 'Lower Body + Core', exercises: ['Front Squat', 'Hip Thrust', 'Leg Curl', 'Plank', 'Hanging Leg Raise'] },
+  6: { label: 'Full Body', exercises: ['Goblet Squat', 'Push-Ups', 'Dumbbell Row', 'Kettlebell Swing', 'Farmer Carry'] },
+};
+const WORKOUT_SPLIT_HOME = {
+  0: { label: 'Rest Day', exercises: [] },
+  1: { label: 'Push Day · Bodyweight', exercises: ['Push-Ups', 'Pike Push-Ups', 'Diamond Push-Ups', 'Chair Triceps Dips', 'Plank to Push-Up'] },
+  2: { label: 'Pull Day · Bodyweight', exercises: ['Doorframe Rows', 'Superman Hold', 'Towel Curl Pulls', 'Reverse Snow Angels', 'Isometric Curl Hold'] },
+  3: { label: 'Leg Day · Bodyweight', exercises: ['Bodyweight Squats', 'Walking Lunges', 'Glute Bridge', 'Step-Ups', 'Calf Raises'] },
+  4: { label: 'Upper Body · Bodyweight', exercises: ['Push-Ups', 'Pike Push-Ups', 'Doorframe Rows', 'Plank Shoulder Taps', 'Chair Triceps Dips'] },
+  5: { label: 'Lower Body + Core', exercises: ['Jump Squats', 'Single-Leg Glute Bridge', 'Wall Sit', 'Plank', 'Bicycle Crunches'] },
+  6: { label: 'Full Body · Bodyweight', exercises: ['Burpees', 'Push-Ups', 'Bodyweight Squats', 'Mountain Climbers', 'Plank'] },
+};
+
+function setsRepsForExperience(experience, goal) {
+  if (experience === 'advanced') return goal === 'muscle-gain' ? '5 × 6-8' : '4-5 × 8-10';
+  if (experience === 'intermediate') return '4 × 8-10';
+  return '3 × 10-12';
+}
+
+function computeWorkoutPlan() {
+  const p = state.profile;
+  const day = new Date().getDay();
+  const split = (p.workoutStyle === 'home' ? WORKOUT_SPLIT_HOME : WORKOUT_SPLIT_GYM)[day];
+  const setsReps = setsRepsForExperience(p.experience, p.goal);
+  return { label: split.label, exercises: split.exercises.map((name) => ({ name, setsReps })) };
+}
+
+function renderWorkoutPlan() {
+  const plan = computeWorkoutPlan();
+  const key = todayKey();
+  const progress = state.workoutPlanProgress[key] || (state.workoutPlanProgress[key] = {});
+  document.getElementById('workoutPlanTitle').textContent = `🏋️ ${plan.label}`;
+  const list = document.getElementById('workoutPlanList');
+  list.innerHTML = '';
+
+  if (!plan.exercises.length) {
+    document.getElementById('workoutPlanCount').textContent = '';
+    list.innerHTML = '<li class="empty-state">Rest day — recovery is part of the plan. Maybe a light walk or stretch.</li>';
+    return;
+  }
+
+  plan.exercises.forEach((ex, i) => {
+    const done = !!progress[i];
+    const li = document.createElement('li');
+    li.className = 'plan-item';
+    li.innerHTML = `
+      <div class="habit-left">
+        <button class="habit-check ${done ? 'done' : ''}" data-i="${i}">${done ? '✓' : ''}</button>
+        <span class="plan-name ${done ? 'plan-done' : ''}">${escapeHtml(ex.name)}</span>
+      </div>
+      <span class="plan-setsreps">${ex.setsReps}</span>
+    `;
+    li.querySelector('.habit-check').addEventListener('click', () => {
+      progress[i] = !progress[i];
+      saveState();
+      renderWorkoutPlan();
+    });
+    list.appendChild(li);
+  });
+
+  const doneCount = plan.exercises.filter((_, i) => progress[i]).length;
+  document.getElementById('workoutPlanCount').textContent = `${doneCount}/${plan.exercises.length}`;
 }
 
 /* ===================== WORKOUT LOG ===================== */
@@ -916,6 +1125,7 @@ function renderAll() {
   renderWorkoutLog();
   renderHabits();
   renderAchievements();
+  renderWorkoutPlan();
   renderCalcNumbers();
   renderGeminiKeyStatus();
   renderReminderForm();

@@ -1,4 +1,4 @@
-const CACHE = 'fittrack-ai-v1';
+const CACHE = 'fittrack-ai-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -25,16 +25,16 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  // Network-first: always serve the latest app files when online so updates
+  // show up without users needing to clear the cache manually. Falls back
+  // to the cached copy only when offline.
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(e.request)
-        .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((cache) => cache.put(e.request, copy));
-          return res;
-        })
-        .catch(() => cached);
-    })
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((cache) => cache.put(e.request, copy));
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });

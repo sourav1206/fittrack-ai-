@@ -195,7 +195,7 @@
       </div>
 
       <div class="card">
-        <div class="card-head"><span>🍽️ Today's AI food suggestion</span><button class="link-btn" id="aiCoachRefreshBtn">Refresh</button></div>
+        <div class="card-head"><span>🍽️ Today's AI food suggestions</span><button class="link-btn" id="aiCoachRefreshBtn">Refresh</button></div>
         <div id="aiCoachBody" class="ai-coach-body">
           <p class="muted small">Add your Gemini API key in Settings to get personalized meal ideas.</p>
         </div>
@@ -211,7 +211,14 @@
 
     <!-- LOG / FOOD -->
     <section class="view" data-view="log">
-      <div class="view-head"><h1>Food Log</h1><p class="muted">Manual entry now — voice, photo & barcode are next on the roadmap.</p></div>
+      <div class="view-head"><h1>Food Log</h1><p class="muted">Manual entry, or scan a photo of your meal.</p></div>
+
+      <div class="card">
+        <div class="card-head"><span>📷 Scan a meal photo</span></div>
+        <p class="muted small">Take or upload a photo — Gemini estimates the food, calories, and macros, then fills in the form below for you to review.</p>
+        <label class="btn-ghost file-btn" id="scanPhotoLabel">Take / choose photo<input type="file" id="scanPhotoInput" accept="image/*" capture="environment" hidden /></label>
+        <div id="scanPhotoStatus" class="muted small" style="margin-top:8px;"></div>
+      </div>
 
       <div class="card form-card">
         <div class="field-row">
@@ -249,6 +256,11 @@
     <!-- WORKOUT -->
     <section class="view" data-view="workout">
       <div class="view-head"><h1>Workout</h1><p class="muted">Log sets, track weight moved, build your history.</p></div>
+
+      <div class="card">
+        <div class="card-head"><span id="workoutPlanTitle">🏋️ Today's plan</span><span class="muted small" id="workoutPlanCount">0/0</span></div>
+        <ul id="workoutPlanList" class="plan-list"></ul>
+      </div>
 
       <div class="card form-card">
         <div class="field-row">
