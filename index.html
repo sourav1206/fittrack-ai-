@@ -220,6 +220,13 @@
         <div id="scanPhotoStatus" class="muted small" style="margin-top:8px;"></div>
       </div>
 
+      <div class="card">
+        <div class="card-head"><span>🎤 Speak what you ate</span></div>
+        <p class="muted small">Say something like "two rotis and a bowl of dal" — Gemini estimates the macros and fills in the form below.</p>
+        <button class="btn-ghost" id="voiceLogBtn">🎤 Start speaking</button>
+        <div id="voiceLogStatus" class="muted small" style="margin-top:8px;"></div>
+      </div>
+
       <div class="card form-card">
         <div class="field-row">
           <label class="field"><span>Meal</span>
@@ -248,6 +255,12 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><span>🇮🇳 Quick add — Indian foods</span></div>
+        <input type="text" id="quickAddSearch" class="quick-add-search" placeholder="Search e.g. dal, roti, paneer..." />
+        <ul id="quickAddList" class="fav-list quick-add-list"></ul>
+      </div>
+
+      <div class="card">
         <div class="card-head"><span>Today's meals</span></div>
         <ul id="mealLogList" class="timeline-list"><li class="empty-state">No meals logged today.</li></ul>
       </div>
@@ -262,6 +275,11 @@
         <ul id="workoutPlanList" class="plan-list"></ul>
       </div>
 
+      <div class="card">
+        <div class="card-head"><span>📅 This week's split</span></div>
+        <ul id="weeklySplitList" class="week-split-list"></ul>
+      </div>
+
       <div class="card form-card">
         <div class="field-row">
           <label class="field"><span>Exercise</span><input type="text" id="woExercise" placeholder="e.g. Bench Press" /></label>
@@ -274,6 +292,11 @@
           <label class="field"><span>Duration (min)</span><input type="number" id="woDuration" placeholder="30" /></label>
         </div>
         <div class="form-actions"><button class="btn-primary" id="logWorkoutBtn">Log workout</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>🏆 Personal records</span></div>
+        <ul id="prList" class="timeline-list"><li class="empty-state">Log a weighted set to start tracking PRs.</li></ul>
       </div>
 
       <div class="card">
@@ -322,6 +345,12 @@
       <div class="card">
         <div class="card-head"><span>Weight trend</span><span class="muted small" id="weightTrendNote"></span></div>
         <svg id="weightChart" viewBox="0 0 320 140" class="chart-svg"></svg>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Calorie trend</span><span class="muted small">last 14 days</span></div>
+        <svg id="calorieChart" viewBox="0 0 320 140" class="chart-svg"></svg>
+        <p class="muted small chart-legend"><span class="legend-dot legend-coral"></span>Logged calories <span class="legend-dot legend-teal"></span>Daily target</p>
       </div>
 
       <div class="card">
@@ -379,6 +408,12 @@
           <label class="checkbox"><input type="checkbox" id="remWeighInEnable" /> Weekly weigh-in</label>
           <span class="muted small">Monday 08:00</span>
         </div>
+
+        <div class="settings-row reminder-row">
+          <label class="checkbox"><input type="checkbox" id="remSmartNudgeEnable" /> 🤖 Smart AI nudge at</label>
+          <input type="time" id="remSmartNudgeTime" class="reminder-num" />
+        </div>
+        <p class="muted small">Uses your Gemini key to write a one-line nudge based on today's actual progress (e.g. remaining protein, water, workout status) instead of a fixed message.</p>
 
         <div class="form-actions">
           <button class="btn-primary" id="saveReminderBtn" style="width:auto;padding:11px 22px;">Save reminder settings</button>

@@ -207,6 +207,12 @@ h2{font-family:var(--font-display);font-size:26px;font-weight:700;margin:8px 0 2
 
 .fav-list li{cursor:pointer;}
 .fav-list li:active{background:var(--surface);}
+.quick-add-search{
+  width:100%;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+  border-radius:var(--radius-sm);padding:10px 14px;font-size:13.5px;margin-bottom:10px;outline:none;
+}
+.quick-add-search:focus{border-color:var(--coral);}
+.quick-add-list{max-height:260px;overflow-y:auto;}
 
 .habit-list li{
   display:flex;align-items:center;justify-content:space-between;
@@ -234,6 +240,11 @@ h2{font-family:var(--font-display);font-size:26px;font-weight:700;margin:8px 0 2
 .file-btn{display:inline-flex;align-items:center;justify-content:center;}
 
 .chart-svg{width:100%;height:140px;}
+.chart-legend{display:flex;align-items:center;gap:6px;margin-top:6px;}
+.legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-left:10px;}
+.legend-dot:first-child{margin-left:0;}
+.legend-coral{background:var(--coral);}
+.legend-teal{background:var(--teal);}
 
 /* Bottom nav */
 .bottom-nav{
@@ -268,6 +279,13 @@ h2{font-family:var(--font-display);font-size:26px;font-weight:700;margin:8px 0 2
 .plan-name{font-size:14px;}
 .plan-name.plan-done{color:var(--muted);text-decoration:line-through;}
 .plan-setsreps{font-size:12px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap;}
+
+.week-split-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.week-split-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:var(--radius-sm);background:var(--surface-2);font-size:13px;}
+.week-split-day{color:var(--muted);}
+.week-split-label{font-weight:600;}
+.week-split-today{background:linear-gradient(135deg, rgba(255,90,54,.18), rgba(45,212,191,.1));border:1px solid var(--coral);}
+.week-split-today .week-split-day{color:var(--coral);font-weight:600;}
 
 /* Reminders */
 .reminder-row{padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}
