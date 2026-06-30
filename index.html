@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>FitTrack AI</title>
+<meta name="theme-color" content="#11141A" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ===== ONBOARDING ===== -->
+<div id="onboarding" class="screen onboarding hidden">
+  <div class="ob-progress"><div id="obProgressBar" class="ob-progress-bar"></div></div>
+
+  <div class="ob-step" data-step="0">
+    <div class="ob-hero">
+      <svg class="ob-mark" viewBox="0 0 64 64" fill="none">
+        <circle cx="32" cy="32" r="22" stroke="#FF5A36" stroke-width="6" stroke-dasharray="100 138" stroke-linecap="round" transform="rotate(-90 32 32)"/>
+        <circle cx="32" cy="32" r="22" stroke="#2DD4BF" stroke-width="6" stroke-dasharray="40 138" stroke-linecap="round" transform="rotate(50 32 32)"/>
+        <circle cx="32" cy="32" r="4" fill="#F3F4F6"/>
+      </svg>
+      <h1>FitTrack AI</h1>
+      <p class="ob-sub">A coach that pays attention every day, not just on workout days.</p>
+    </div>
+    <button class="btn-primary" data-next>Set up my plan</button>
+    <button class="btn-ghost" id="skipToApp">I already have data on this device</button>
+  </div>
+
+  <div class="ob-step" data-step="1">
+    <h2>Let's start with you</h2>
+    <p class="ob-sub">Used to calibrate every number on your dashboard.</p>
+    <label class="field"><span>Full name</span><input type="text" id="obName" placeholder="Your name" /></label>
+    <div class="field-row">
+      <label class="field"><span>Age</span><input type="number" id="obAge" placeholder="28" /></label>
+      <label class="field"><span>Gender</span>
+        <select id="obGender">
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+    </div>
+    <div class="field-row">
+      <label class="field"><span>Height (cm)</span><input type="number" id="obHeight" placeholder="175" /></label>
+      <label class="field"><span>Current weight (kg)</span><input type="number" id="obWeight" placeholder="78" /></label>
+    </div>
+    <div class="ob-nav"><button class="btn-ghost" data-back>Back</button><button class="btn-primary" data-next>Continue</button></div>
+  </div>
+
+  <div class="ob-step" data-step="2">
+    <h2>What's the goal?</h2>
+    <p class="ob-sub">This decides your calorie direction and macro split.</p>
+    <div class="chip-grid" id="obGoal">
+      <button class="chip" data-value="weight-loss">Weight Loss</button>
+      <button class="chip" data-value="fat-loss">Fat Loss</button>
+      <button class="chip" data-value="muscle-gain">Muscle Gain</button>
+      <button class="chip" data-value="recomposition">Body Recomposition</button>
+      <button class="chip" data-value="maintain">Maintain Weight</button>
+      <button class="chip" data-value="fitness">Improve Fitness</button>
+      <button class="chip" data-value="endurance">Improve Endurance</button>
+    </div>
+    <div class="field-row">
+      <label class="field"><span>Target weight (kg)</span><input type="number" id="obTargetWeight" placeholder="72" /></label>
+      <label class="field"><span>Target date</span><input type="date" id="obTargetDate" /></label>
+    </div>
+    <div class="ob-nav"><button class="btn-ghost" data-back>Back</button><button class="btn-primary" data-next>Continue</button></div>
+  </div>
+
+  <div class="ob-step" data-step="3">
+    <h2>Activity & lifestyle</h2>
+    <label class="field"><span>Daily activity level</span>
+      <select id="obActivity">
+        <option value="1.2">Sedentary — desk job, little movement</option>
+        <option value="1.375">Light — walks, 1-3 light workouts/week</option>
+        <option value="1.55" selected>Moderate — workouts 3-5 days/week</option>
+        <option value="1.725">Active — hard training 6-7 days/week</option>
+        <option value="1.9">Very active — physical job + training</option>
+      </select>
+    </label>
+    <label class="field"><span>Eating style</span>
+      <select id="obDiet">
+        <option value="veg">Vegetarian</option>
+        <option value="vegan">Vegan</option>
+        <option value="eggetarian">Eggetarian</option>
+        <option value="non-veg">Non-Vegetarian</option>
+      </select>
+    </label>
+    <div class="field-row">
+      <label class="field"><span>Workout style</span>
+        <select id="obWorkoutStyle"><option value="gym">Gym</option><option value="home">Home</option><option value="hybrid">Hybrid</option></select>
+      </label>
+      <label class="field"><span>Experience</span>
+        <select id="obExperience"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select>
+      </label>
+    </div>
+    <div class="ob-nav"><button class="btn-ghost" data-back>Back</button><button class="btn-primary" data-next>Continue</button></div>
+  </div>
+
+  <div class="ob-step" data-step="4">
+    <h2>Routine & habits</h2>
+    <div class="field-row">
+      <label class="field"><span>Wake-up time</span><input type="time" id="obWake" value="06:30" /></label>
+      <label class="field"><span>Sleep time</span><input type="time" id="obSleep" value="23:00" /></label>
+    </div>
+    <div class="field-row">
+      <label class="field"><span>Water intake (glasses/day)</span><input type="number" id="obWater" placeholder="8" /></label>
+      <label class="field"><span>Sleep hours (avg)</span><input type="number" id="obSleepHours" placeholder="7" step="0.5" /></label>
+    </div>
+    <label class="field"><span>Allergies (optional)</span><input type="text" id="obAllergies" placeholder="e.g. peanuts, lactose" /></label>
+    <div class="ob-nav"><button class="btn-ghost" data-back>Back</button><button class="btn-primary" id="finishOnboarding">Build my plan</button></div>
+  </div>
+</div>
+
+<!-- ===== APP SHELL ===== -->
+<div id="app" class="app hidden">
+
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><circle cx="12" cy="12" r="8" stroke="#FF5A36" stroke-width="2.5" stroke-dasharray="32 50" stroke-linecap="round" transform="rotate(-90 12 12)"/><circle cx="12" cy="12" r="8" stroke="#2DD4BF" stroke-width="2.5" stroke-dasharray="14 50" stroke-linecap="round" transform="rotate(50 12 12)"/></svg>
+      </span>
+      <span class="brand-name">FitTrack</span>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" id="themeToggle" title="Toggle theme">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v1M12 20v1M4.2 4.2l.7.7M19.1 19.1l.7.7M3 12h1M20 12h1M4.2 19.8l.7-.7M19.1 4.9l.7-.7"/><circle cx="12" cy="12" r="5"/></svg>
+      </button>
+      <button class="avatar-btn" id="profileBtn"><span id="avatarInitial">S</span></button>
+    </div>
+  </header>
+
+  <main class="views">
+
+    <!-- DASHBOARD -->
+    <section class="view active" data-view="dashboard">
+      <div class="greet">
+        <h1 id="greetName">Hey there 👋</h1>
+        <p id="greetDate" class="muted"></p>
+      </div>
+
+      <div class="gauge-card">
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 220 220" class="gauge-svg">
+            <circle cx="110" cy="110" r="92" class="gauge-track" />
+            <circle cx="110" cy="110" r="92" id="gaugeProtein" class="gauge-seg seg-protein" />
+            <circle cx="110" cy="110" r="92" id="gaugeCarbs" class="gauge-seg seg-carbs" />
+            <circle cx="110" cy="110" r="92" id="gaugeFat" class="gauge-seg seg-fat" />
+          </svg>
+          <div class="gauge-center">
+            <span id="caloriesRemaining">0</span>
+            <small>kcal left today</small>
+          </div>
+        </div>
+        <div class="gauge-legend">
+          <div class="leg-item"><i class="dot dot-protein"></i>Protein <b id="legProtein">0g</b></div>
+          <div class="leg-item"><i class="dot dot-carbs"></i>Carbs <b id="legCarbs">0g</b></div>
+          <div class="leg-item"><i class="dot dot-fat"></i>Fat <b id="legFat">0g</b></div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-card">
+          <span class="stat-label">Weight</span>
+          <span class="stat-value" id="statWeight">—</span>
+          <span class="stat-sub" id="statWeightDelta">to goal</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Water</span>
+          <span class="stat-value" id="statWater">0/8</span>
+          <button class="mini-btn" id="addWaterBtn">+ glass</button>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Streak</span>
+          <span class="stat-value" id="statStreak">0🔥</span>
+          <span class="stat-sub">days logged</span>
+        </div>
+      </div>
+
+      <div class="card score-card">
+        <div class="score-head">
+          <span>Daily Health Score</span>
+          <span id="healthScoreVal">0</span>
+        </div>
+        <div class="score-bar"><div id="healthScoreBar" class="score-bar-fill"></div></div>
+        <p class="muted small" id="healthScoreNote">Log a meal and some water to get your score going.</p>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Today's timeline</span><button class="link-btn" id="addEntryBtn">+ Add</button></div>
+        <ul id="timelineList" class="timeline-list">
+          <li class="empty-state">Nothing logged yet today. Tap "+ Add" to log a meal, water, or workout.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- LOG / FOOD -->
+    <section class="view" data-view="log">
+      <div class="view-head"><h1>Food Log</h1><p class="muted">Manual entry now — voice, photo & barcode are next on the roadmap.</p></div>
+
+      <div class="card form-card">
+        <div class="field-row">
+          <label class="field"><span>Meal</span>
+            <select id="logMealType">
+              <option>Breakfast</option><option>Morning Snack</option><option>Lunch</option>
+              <option>Evening Snack</option><option>Dinner</option><option>Pre-workout</option><option>Post-workout</option>
+            </select>
+          </label>
+          <label class="field"><span>Food name</span><input type="text" id="logFoodName" placeholder="e.g. Dal + rice" /></label>
+        </div>
+        <div class="field-row four">
+          <label class="field"><span>Calories</span><input type="number" id="logCal" placeholder="kcal" /></label>
+          <label class="field"><span>Protein (g)</span><input type="number" id="logProtein" placeholder="g" /></label>
+          <label class="field"><span>Carbs (g)</span><input type="number" id="logCarbs" placeholder="g" /></label>
+          <label class="field"><span>Fat (g)</span><input type="number" id="logFat" placeholder="g" /></label>
+        </div>
+        <div class="form-actions">
+          <label class="checkbox"><input type="checkbox" id="logSaveFav" /> Save as favorite</label>
+          <button class="btn-primary" id="logFoodBtn">Log meal</button>
+        </div>
+      </div>
+
+      <div class="card" id="favCard">
+        <div class="card-head"><span>Favorites</span></div>
+        <ul id="favList" class="fav-list"><li class="empty-state">No favorites saved yet.</li></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Today's meals</span></div>
+        <ul id="mealLogList" class="timeline-list"><li class="empty-state">No meals logged today.</li></ul>
+      </div>
+    </section>
+
+    <!-- WORKOUT -->
+    <section class="view" data-view="workout">
+      <div class="view-head"><h1>Workout</h1><p class="muted">Log sets, track weight moved, build your history.</p></div>
+
+      <div class="card form-card">
+        <div class="field-row">
+          <label class="field"><span>Exercise</span><input type="text" id="woExercise" placeholder="e.g. Bench Press" /></label>
+          <label class="field"><span>Calories burned (est.)</span><input type="number" id="woCalories" placeholder="kcal" /></label>
+        </div>
+        <div class="field-row four">
+          <label class="field"><span>Sets</span><input type="number" id="woSets" placeholder="3" /></label>
+          <label class="field"><span>Reps</span><input type="number" id="woReps" placeholder="10" /></label>
+          <label class="field"><span>Weight (kg)</span><input type="number" id="woWeight" placeholder="40" /></label>
+          <label class="field"><span>Duration (min)</span><input type="number" id="woDuration" placeholder="30" /></label>
+        </div>
+        <div class="form-actions"><button class="btn-primary" id="logWorkoutBtn">Log workout</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Today's workouts</span></div>
+        <ul id="workoutLogList" class="timeline-list"><li class="empty-state">No workouts logged today.</li></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>History</span></div>
+        <ul id="workoutHistoryList" class="timeline-list"><li class="empty-state">Your workout history will build up here.</li></ul>
+      </div>
+    </section>
+
+    <!-- HABITS -->
+    <section class="view" data-view="habits">
+      <div class="view-head"><h1>Habits</h1><p class="muted">Small daily wins, tracked honestly.</p></div>
+      <div class="card">
+        <ul id="habitList" class="habit-list"></ul>
+      </div>
+      <div class="card form-card">
+        <div class="field-row">
+          <label class="field" style="flex:1"><span>New habit</span><input type="text" id="newHabitInput" placeholder="e.g. 10-min walk after dinner" /></label>
+        </div>
+        <div class="form-actions"><button class="btn-primary" id="addHabitBtn">Add habit</button></div>
+      </div>
+    </section>
+
+    <!-- WEIGHT / MEASUREMENTS -->
+    <section class="view" data-view="progress">
+      <div class="view-head"><h1>Progress</h1><p class="muted">Weight and measurements over time.</p></div>
+
+      <div class="card form-card">
+        <div class="field-row">
+          <label class="field"><span>Weight (kg)</span><input type="number" id="progWeight" placeholder="78" step="0.1" /></label>
+          <label class="field"><span>Waist (cm)</span><input type="number" id="progWaist" placeholder="optional" /></label>
+        </div>
+        <div class="form-actions"><button class="btn-primary" id="logWeightBtn">Log entry</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Weight trend</span><span class="muted small" id="weightTrendNote"></span></div>
+        <svg id="weightChart" viewBox="0 0 320 140" class="chart-svg"></svg>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>History</span></div>
+        <ul id="weightHistoryList" class="timeline-list"><li class="empty-state">No entries yet.</li></ul>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" data-view="settings">
+      <div class="view-head"><h1>Settings</h1></div>
+
+      <div class="card">
+        <div class="card-head"><span>Your numbers</span></div>
+        <div class="num-grid" id="calcNumbersGrid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Appearance</span></div>
+        <div class="settings-row">
+          <span>Theme</span>
+          <div class="seg-toggle" id="themeSeg">
+            <button data-theme="dark" class="active">Dark</button>
+            <button data-theme="light">Light</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Your data</span></div>
+        <p class="muted small">Everything stays on this device. Export a backup any time.</p>
+        <div class="form-actions">
+          <button class="btn-ghost" id="exportDataBtn">Export JSON</button>
+          <label class="btn-ghost file-btn">Import JSON<input type="file" id="importDataInput" accept="application/json" hidden /></label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>Reset</span></div>
+        <p class="muted small">Clears your profile and logs from this device permanently.</p>
+        <button class="btn-danger" id="resetAppBtn">Delete all data</button>
+      </div>
+    </section>
+
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-view-btn="dashboard">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      <span>Home</span>
+    </button>
+    <button class="nav-btn" data-view-btn="log">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5V6a2 2 0 0 1 2-2h8.5L20 8.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-1.5Z"/><path d="M14 4v5h5"/></svg>
+      <span>Log</span>
+    </button>
+    <button class="nav-btn" data-view-btn="workout">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 7v10M18 7v10M2 10v4M22 10v4M6 12h12"/></svg>
+      <span>Workout</span>
+    </button>
+    <button class="nav-btn" data-view-btn="habits">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 13 4 4L19 7"/></svg>
+      <span>Habits</span>
+    </button>
+    <button class="nav-btn" data-view-btn="progress">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17 9 11 13 15 21 7"/><path d="M15 7h6v6"/></svg>
+      <span>Progress</span>
+    </button>
+  </nav>
+
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
