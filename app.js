@@ -16,7 +16,7 @@ function defaultState() {
     ],
     weightHistory: [],
     days: {}, // dateKey -> { meals:[], workouts:[], waterGlasses:0 }
-    anthropicKey: '',
+    geminiKey: '',
     aiCoach: { date: null, text: '', error: '' },
     reminders: {
       waterEnable: false, waterMinutes: 60,
@@ -362,8 +362,8 @@ function renderAiCoachBody(html) {
 }
 
 function renderAiCoachState() {
-  if (!state.anthropicKey) {
-    renderAiCoachBody('<p class="muted small">Add your Anthropic API key in Settings to get personalized meal ideas.</p>');
+  if (!state.geminiKey) {
+    renderAiCoachBody('<p class="muted small">Add your Gemini API key in Settings to get personalized meal ideas.</p>');
     return;
   }
   const cached = state.aiCoach;
@@ -379,33 +379,28 @@ function renderAiCoachState() {
 }
 
 async function fetchAiCoachSuggestion() {
-  if (!state.anthropicKey) {
+  if (!state.geminiKey) {
     renderAiCoachState();
     return;
   }
   renderAiCoachBody('<p class="muted small">Thinking of something good for you…</p>');
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiKey)}`;
+    const res = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': state.anthropicKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: buildCoachPrompt() }],
+        contents: [{ parts: [{ text: buildCoachPrompt() }] }],
+        generationConfig: { maxOutputTokens: 300 },
       }),
     });
     if (!res.ok) {
       let detail = '';
       try { detail = (await res.json()).error?.message || ''; } catch (e) {}
-      throw new Error(res.status === 401 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+      throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
     }
     const data = await res.json();
-    const text = (data.content || []).map((c) => c.text || '').join('').trim() || 'No suggestion returned.';
+    const text = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim() || 'No suggestion returned.';
     state.aiCoach = { date: todayKey(), text, error: '' };
     saveState();
     renderAiCoachState();
@@ -417,7 +412,7 @@ async function fetchAiCoachSuggestion() {
 }
 
 function loadAiCoachOnDashboard() {
-  if (!state.anthropicKey) {
+  if (!state.geminiKey) {
     renderAiCoachState();
     return;
   }
@@ -431,19 +426,19 @@ function loadAiCoachOnDashboard() {
 document.getElementById('aiCoachRefreshBtn').addEventListener('click', fetchAiCoachSuggestion);
 
 document.getElementById('saveKeyBtn').addEventListener('click', () => {
-  const val = document.getElementById('anthropicKeyInput').value.trim();
-  state.anthropicKey = val;
+  const val = document.getElementById('geminiKeyInput').value.trim();
+  state.geminiKey = val;
   state.aiCoach = { date: null, text: '', error: '' };
   saveState();
-  document.getElementById('anthropicKeyInput').value = '';
-  renderAnthropicKeyStatus();
+  document.getElementById('geminiKeyInput').value = '';
+  renderGeminiKeyStatus();
   toast(val ? 'API key saved.' : 'API key cleared.');
   if (val) loadAiCoachOnDashboard();
   else renderAiCoachState();
 });
 
-function renderAnthropicKeyStatus() {
-  document.getElementById('anthropicKeyStatus').textContent = state.anthropicKey ? 'Key saved on this device.' : 'No key saved.';
+function renderGeminiKeyStatus() {
+  document.getElementById('geminiKeyStatus').textContent = state.geminiKey ? 'Key saved on this device.' : 'No key saved.';
 }
 
 /* ===================== FOOD LOG ===================== */
@@ -922,7 +917,7 @@ function renderAll() {
   renderHabits();
   renderAchievements();
   renderCalcNumbers();
-  renderAnthropicKeyStatus();
+  renderGeminiKeyStatus();
   renderReminderForm();
 }
 
