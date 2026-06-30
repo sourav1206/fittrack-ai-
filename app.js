@@ -358,6 +358,20 @@ function buildCoachPrompt() {
   return `I follow a ${p.diet} diet and my goal is ${p.goal}. For the rest of today I have roughly ${rem.calories} kcal, ${rem.protein}g protein, ${rem.carbs}g carbs, and ${rem.fat}g fat left in my targets. Suggest 4 to 5 distinct, specific meal or snack ideas that fit within these remaining macros (each on its own, not meant to be eaten together). For each, estimate its own calories and macros.`;
 }
 
+function safeParseJson(raw) {
+  let text = (raw || '').trim();
+  text = text.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    try {
+      return JSON.parse(text.replace(/,\s*([}\]])/g, '$1'));
+    } catch (e2) {
+      throw new Error('Got an unexpected response from Gemini — tap Refresh to try again.');
+    }
+  }
+}
+
 const MEAL_SUGGESTION_SCHEMA = {
   type: 'ARRAY',
   items: {
@@ -452,7 +466,7 @@ async function fetchAiCoachSuggestion() {
       body: JSON.stringify({
         contents: [{ parts: [{ text: buildCoachPrompt() }] }],
         generationConfig: {
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
           responseMimeType: 'application/json',
           responseSchema: MEAL_SUGGESTION_SCHEMA,
         },
@@ -464,8 +478,12 @@ async function fetchAiCoachSuggestion() {
       throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
     }
     const data = await res.json();
-    const raw = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
-    const items = JSON.parse(raw || '[]');
+    const candidate = data.candidates?.[0];
+    if (candidate?.finishReason === 'MAX_TOKENS') {
+      throw new Error('Response was cut off — tap Refresh to try again.');
+    }
+    const raw = (candidate?.content?.parts || []).map((p) => p.text || '').join('');
+    const items = raw ? safeParseJson(raw) : [];
     state.aiCoach = { date: todayKey(), items, error: '' };
     saveState();
     renderAiCoachState();
@@ -553,7 +571,7 @@ document.getElementById('scanPhotoInput').addEventListener('change', async (e) =
           ],
         }],
         generationConfig: {
-          maxOutputTokens: 512,
+          maxOutputTokens: 1024,
           responseMimeType: 'application/json',
           responseSchema: FOOD_SCAN_SCHEMA,
         },
@@ -565,8 +583,12 @@ document.getElementById('scanPhotoInput').addEventListener('change', async (e) =
       throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
     }
     const data = await res.json();
-    const raw = (data.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
-    const result = JSON.parse(raw || '{}');
+    const candidate = data.candidates?.[0];
+    if (candidate?.finishReason === 'MAX_TOKENS') {
+      throw new Error('Response was cut off — try again.');
+    }
+    const raw = (candidate?.content?.parts || []).map((p) => p.text || '').join('');
+    const result = raw ? safeParseJson(raw) : {};
     document.getElementById('logFoodName').value = result.name || '';
     document.getElementById('logCal').value = Math.round(result.calories || 0) || '';
     document.getElementById('logProtein').value = Math.round(result.protein || 0) || '';
