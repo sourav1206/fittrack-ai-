@@ -16,6 +16,16 @@ function defaultState() {
     ],
     weightHistory: [],
     days: {}, // dateKey -> { meals:[], workouts:[], waterGlasses:0 }
+    anthropicKey: '',
+    aiCoach: { date: null, text: '', error: '' },
+    reminders: {
+      waterEnable: false, waterMinutes: 60,
+      mealsEnable: false,
+      workoutEnable: false, workoutTime: '17:00',
+      sleepEnable: false,
+      weighInEnable: false,
+      lastFired: {}, // key -> dateKey or weekKey already fired
+    },
   };
 }
 
@@ -177,6 +187,7 @@ function enterApp() {
   document.getElementById('app').classList.remove('hidden');
   applyTheme(state.theme);
   renderAll();
+  loadAiCoachOnDashboard();
 }
 
 document.querySelectorAll('[data-view-btn]').forEach((btn) => {
@@ -187,9 +198,11 @@ function switchView(name) {
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.dataset.view === name));
   document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b.dataset.viewBtn === name));
   if (name === 'progress') renderWeightChart();
+  if (name === 'dashboard') loadAiCoachOnDashboard();
 }
 
 document.getElementById('addEntryBtn').addEventListener('click', () => switchView('log'));
+document.getElementById('profileBtn').addEventListener('click', () => switchView('settings'));
 
 /* ===================== DASHBOARD RENDER ===================== */
 function todayTotals() {
@@ -323,6 +336,114 @@ function renderDashboard() {
   renderStats();
   renderHealthScore();
   renderTimeline();
+  renderAiCoachState();
+}
+
+/* ===================== AI FOOD COACH ===================== */
+function remainingMacros() {
+  const calcs = state.profile.calcs;
+  const totals = todayTotals();
+  return {
+    calories: Math.max(calcs.calories - totals.cal, 0),
+    protein: Math.max(calcs.protein - totals.protein, 0),
+    carbs: Math.max(calcs.carbs - totals.carbs, 0),
+    fat: Math.max(calcs.fat - totals.fat, 0),
+  };
+}
+
+function buildCoachPrompt() {
+  const p = state.profile;
+  const rem = remainingMacros();
+  return `I follow a ${p.diet} diet and my goal is ${p.goal}. For the rest of today I have roughly ${rem.calories} kcal, ${rem.protein}g protein, ${rem.carbs}g carbs, and ${rem.fat}g fat left in my targets. Suggest 2-3 specific meal or snack ideas that fit these remaining macros. Keep it under 80 words total, plain text only, no markdown.`;
+}
+
+function renderAiCoachBody(html) {
+  document.getElementById('aiCoachBody').innerHTML = html;
+}
+
+function renderAiCoachState() {
+  if (!state.anthropicKey) {
+    renderAiCoachBody('<p class="muted small">Add your Anthropic API key in Settings to get personalized meal ideas.</p>');
+    return;
+  }
+  const cached = state.aiCoach;
+  if (cached.error && cached.date === todayKey()) {
+    renderAiCoachBody(`<p class="ai-coach-error small">${escapeHtml(cached.error)}</p>`);
+    return;
+  }
+  if (cached.text && cached.date === todayKey()) {
+    renderAiCoachBody(`<p class="ai-coach-text">${escapeHtml(cached.text)}</p>`);
+    return;
+  }
+  renderAiCoachBody('<p class="muted small">No suggestion yet today. Tap Refresh to get one.</p>');
+}
+
+async function fetchAiCoachSuggestion() {
+  if (!state.anthropicKey) {
+    renderAiCoachState();
+    return;
+  }
+  renderAiCoachBody('<p class="muted small">Thinking of something good for you…</p>');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': state.anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-5',
+        max_tokens: 300,
+        messages: [{ role: 'user', content: buildCoachPrompt() }],
+      }),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).error?.message || ''; } catch (e) {}
+      throw new Error(res.status === 401 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+    }
+    const data = await res.json();
+    const text = (data.content || []).map((c) => c.text || '').join('').trim() || 'No suggestion returned.';
+    state.aiCoach = { date: todayKey(), text, error: '' };
+    saveState();
+    renderAiCoachState();
+  } catch (err) {
+    state.aiCoach = { date: todayKey(), text: '', error: err.message || 'Could not reach the AI coach. Check your connection and API key.' };
+    saveState();
+    renderAiCoachState();
+  }
+}
+
+function loadAiCoachOnDashboard() {
+  if (!state.anthropicKey) {
+    renderAiCoachState();
+    return;
+  }
+  if (state.aiCoach.date === todayKey() && (state.aiCoach.text || state.aiCoach.error)) {
+    renderAiCoachState();
+    return;
+  }
+  fetchAiCoachSuggestion();
+}
+
+document.getElementById('aiCoachRefreshBtn').addEventListener('click', fetchAiCoachSuggestion);
+
+document.getElementById('saveKeyBtn').addEventListener('click', () => {
+  const val = document.getElementById('anthropicKeyInput').value.trim();
+  state.anthropicKey = val;
+  state.aiCoach = { date: null, text: '', error: '' };
+  saveState();
+  document.getElementById('anthropicKeyInput').value = '';
+  renderAnthropicKeyStatus();
+  toast(val ? 'API key saved.' : 'API key cleared.');
+  if (val) loadAiCoachOnDashboard();
+  else renderAiCoachState();
+});
+
+function renderAnthropicKeyStatus() {
+  document.getElementById('anthropicKeyStatus').textContent = state.anthropicKey ? 'Key saved on this device.' : 'No key saved.';
 }
 
 /* ===================== FOOD LOG ===================== */
@@ -458,6 +579,49 @@ document.getElementById('addWaterBtn').addEventListener('click', () => {
   saveState();
   renderAll();
 });
+
+/* ===================== ACHIEVEMENTS ===================== */
+function computeAchievements() {
+  const p = state.profile;
+  const days = Object.values(state.days);
+  const anyWorkout = days.some((d) => d.workouts.length > 0);
+  const streak = computeStreak();
+  const proteinGoalHit = days.some((d) => {
+    const protein = d.meals.reduce((sum, m) => sum + (m.protein || 0), 0);
+    return protein >= p.calcs.protein;
+  });
+  const hydrationDays = days.filter((d) => d.waterGlasses >= p.calcs.waterGlasses).length;
+  const earlyBird = days.some((d) => d.meals.some((m) => m.time && m.time < '08:00'));
+  const weights = [...state.weightHistory].sort((a, b) => a.date.localeCompare(b.date));
+  const fiveKgMilestone = weights.length > 1 && weights.some((w) => Math.abs(w.weight - weights[0].weight) >= 5);
+
+  return [
+    { id: 'firstWorkout', icon: '🏋️', name: 'First Workout', unlocked: anyWorkout },
+    { id: 'streak7', icon: '🔥', name: '7-Day Streak', unlocked: streak >= 7 },
+    { id: 'streak14', icon: '🔥', name: '14-Day Streak', unlocked: streak >= 14 },
+    { id: 'streak30', icon: '🔥', name: '30-Day Streak', unlocked: streak >= 30 },
+    { id: 'proteinGoal', icon: '🥩', name: 'Protein Goal Hit', unlocked: proteinGoalHit },
+    { id: 'hydration', icon: '💧', name: 'Hydration Champion', unlocked: hydrationDays >= 7 },
+    { id: 'earlyBird', icon: '🌅', name: 'Early Bird', unlocked: earlyBird },
+    { id: 'milestone5kg', icon: '⚖️', name: '5kg Milestone', unlocked: fiveKgMilestone },
+  ];
+}
+
+function renderAchievements() {
+  const badges = computeAchievements();
+  const grid = document.getElementById('achievementGrid');
+  grid.innerHTML = badges
+    .map(
+      (b) => `
+      <div class="badge ${b.unlocked ? 'unlocked' : ''}">
+        <span class="badge-icon">${b.icon}</span>
+        <span class="badge-name">${b.name}</span>
+      </div>`
+    )
+    .join('');
+  const count = badges.filter((b) => b.unlocked).length;
+  document.getElementById('achievementCount').textContent = `${count}/${badges.length}`;
+}
 
 /* ===================== HABITS ===================== */
 function renderHabits() {
@@ -598,6 +762,108 @@ function applyTheme(theme) {
   document.querySelectorAll('#themeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.theme === theme));
 }
 
+/* ===================== REMINDERS ===================== */
+function renderReminderForm() {
+  const r = state.reminders;
+  document.getElementById('remWaterEnable').checked = r.waterEnable;
+  document.getElementById('remWaterMinutes').value = r.waterMinutes;
+  document.getElementById('remMealsEnable').checked = r.mealsEnable;
+  document.getElementById('remWorkoutEnable').checked = r.workoutEnable;
+  document.getElementById('remWorkoutTime').value = r.workoutTime;
+  document.getElementById('remSleepEnable').checked = r.sleepEnable;
+  document.getElementById('remSleepTimeNote').textContent = state.profile && state.profile.sleep
+    ? `uses bedtime from profile (${state.profile.sleep})`
+    : 'uses bedtime from profile';
+  document.getElementById('remWeighInEnable').checked = r.weighInEnable;
+}
+
+document.getElementById('enableNotifBtn').addEventListener('click', () => {
+  if (!('Notification' in window)) {
+    toast('Notifications are not supported in this browser.');
+    return;
+  }
+  Notification.requestPermission().then((perm) => {
+    toast(perm === 'granted' ? 'Notifications enabled.' : 'Notification permission was not granted.');
+  });
+});
+
+document.getElementById('saveReminderBtn').addEventListener('click', () => {
+  state.reminders.waterEnable = document.getElementById('remWaterEnable').checked;
+  state.reminders.waterMinutes = Math.max(5, Number(document.getElementById('remWaterMinutes').value) || 60);
+  state.reminders.mealsEnable = document.getElementById('remMealsEnable').checked;
+  state.reminders.workoutEnable = document.getElementById('remWorkoutEnable').checked;
+  state.reminders.workoutTime = document.getElementById('remWorkoutTime').value || '17:00';
+  state.reminders.sleepEnable = document.getElementById('remSleepEnable').checked;
+  state.reminders.weighInEnable = document.getElementById('remWeighInEnable').checked;
+  saveState();
+  toast('Reminder settings saved.');
+});
+
+function notify(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification(title, { body }); } catch (e) {}
+}
+
+function weekKey(d) {
+  const date = new Date(d);
+  const onejan = new Date(date.getFullYear(), 0, 1);
+  const week = Math.ceil(((date - onejan) / 86400000 + onejan.getDay() + 1) / 7);
+  return `${date.getFullYear()}-W${week}`;
+}
+
+function checkReminders() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!state.profile) return;
+  const r = state.reminders;
+  const now = new Date();
+  const hhmm = now.toTimeString().slice(0, 5);
+  const dKey = todayKey();
+  const lastFired = r.lastFired || (r.lastFired = {});
+  let dirty = false;
+
+  if (r.waterEnable) {
+    const last = lastFired.water || 0;
+    if (Date.now() - last >= r.waterMinutes * 60000) {
+      notify('Time for some water 💧', 'Log a glass to stay on track with your hydration goal.');
+      lastFired.water = Date.now();
+      dirty = true;
+    }
+  }
+
+  if (r.mealsEnable) {
+    [['breakfast', '08:00'], ['lunch', '13:00'], ['dinner', '20:00']].forEach(([name, time]) => {
+      const fireKey = `meal_${name}`;
+      if (hhmm >= time && lastFired[fireKey] !== dKey) {
+        notify(`${name[0].toUpperCase() + name.slice(1)} reminder 🍽️`, `Don't forget to log your ${name}.`);
+        lastFired[fireKey] = dKey;
+        dirty = true;
+      }
+    });
+  }
+
+  if (r.workoutEnable && hhmm >= r.workoutTime && lastFired.workout !== dKey) {
+    notify('Workout time 🏋️', "Today's a good day to get a session in.");
+    lastFired.workout = dKey;
+    dirty = true;
+  }
+
+  if (r.sleepEnable && state.profile.sleep && hhmm >= state.profile.sleep && lastFired.sleep !== dKey) {
+    notify('Wind down 🌙', "It's close to your bedtime — start wrapping up.");
+    lastFired.sleep = dKey;
+    dirty = true;
+  }
+
+  if (r.weighInEnable && now.getDay() === 1 && hhmm >= '08:00' && lastFired.weighIn !== weekKey(now)) {
+    notify('Weekly weigh-in ⚖️', 'Log your weight to keep your progress chart up to date.');
+    lastFired.weighIn = weekKey(now);
+    dirty = true;
+  }
+
+  if (dirty) saveState();
+}
+
+setInterval(checkReminders, 30000);
+
 document.getElementById('exportDataBtn').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -654,7 +920,10 @@ function renderAll() {
   renderMealLog();
   renderWorkoutLog();
   renderHabits();
+  renderAchievements();
   renderCalcNumbers();
+  renderAnthropicKeyStatus();
+  renderReminderForm();
 }
 
 /* ===================== INIT ===================== */

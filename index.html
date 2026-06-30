@@ -195,6 +195,13 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><span>🍽️ Today's AI food suggestion</span><button class="link-btn" id="aiCoachRefreshBtn">Refresh</button></div>
+        <div id="aiCoachBody" class="ai-coach-body">
+          <p class="muted small">Add your Anthropic API key in Settings to get personalized meal ideas.</p>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head"><span>Today's timeline</span><button class="link-btn" id="addEntryBtn">+ Add</button></div>
         <ul id="timelineList" class="timeline-list">
           <li class="empty-state">Nothing logged yet today. Tap "+ Add" to log a meal, water, or workout.</li>
@@ -271,6 +278,12 @@
     <!-- HABITS -->
     <section class="view" data-view="habits">
       <div class="view-head"><h1>Habits</h1><p class="muted">Small daily wins, tracked honestly.</p></div>
+
+      <div class="card">
+        <div class="card-head"><span>🏆 Achievements</span><span id="achievementCount" class="muted small">0/8</span></div>
+        <div id="achievementGrid" class="achievement-grid"></div>
+      </div>
+
       <div class="card">
         <ul id="habitList" class="habit-list"></ul>
       </div>
@@ -312,6 +325,52 @@
       <div class="card">
         <div class="card-head"><span>Your numbers</span></div>
         <div class="num-grid" id="calcNumbersGrid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>🤖 AI Food Coach</span></div>
+        <p class="muted small">Your key is stored only in this browser's local storage — never sent anywhere except Anthropic's API.</p>
+        <label class="field"><span>Anthropic API key</span><input type="password" id="anthropicKeyInput" placeholder="sk-ant-..." /></label>
+        <div class="form-actions">
+          <span class="muted small" id="anthropicKeyStatus">No key saved.</span>
+          <button class="btn-primary" id="saveKeyBtn" style="width:auto;padding:11px 22px;">Save key</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>🔔 Reminders</span></div>
+        <p class="muted small">Notifications only fire while this tab is open in your browser — there's no push server, so closing the tab stops reminders.</p>
+        <button class="btn-ghost" id="enableNotifBtn">Enable notifications</button>
+
+        <div class="settings-row reminder-row">
+          <label class="checkbox"><input type="checkbox" id="remWaterEnable" /> Water reminder every</label>
+          <input type="number" id="remWaterMinutes" class="reminder-num" placeholder="60" min="5" />
+          <span class="muted small">min</span>
+        </div>
+
+        <div class="settings-row reminder-row">
+          <label class="checkbox"><input type="checkbox" id="remMealsEnable" /> Meal reminders</label>
+          <span class="muted small">08:00 · 13:00 · 20:00</span>
+        </div>
+
+        <div class="settings-row reminder-row">
+          <label class="checkbox"><input type="checkbox" id="remWorkoutEnable" /> Workout reminder at</label>
+          <input type="time" id="remWorkoutTime" class="reminder-num" />
+        </div>
+
+        <div class="settings-row reminder-row">
+          <label class="checkbox"><input type="checkbox" id="remSleepEnable" /> Sleep reminder</label>
+          <span class="muted small" id="remSleepTimeNote">uses bedtime from profile</span>
+        </div>
+
+        <div class="settings-row reminder-row">
+          <label class="checkbox"><input type="checkbox" id="remWeighInEnable" /> Weekly weigh-in</label>
+          <span class="muted small">Monday 08:00</span>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-primary" id="saveReminderBtn" style="width:auto;padding:11px 22px;">Save reminder settings</button>
+        </div>
       </div>
 
       <div class="card">

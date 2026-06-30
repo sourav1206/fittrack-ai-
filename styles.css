@@ -248,6 +248,31 @@ h2{font-family:var(--font-display);font-size:26px;font-weight:700;margin:8px 0 2
 }
 .nav-btn.active{color:var(--coral);}
 
+/* AI Food Coach */
+.ai-coach-body{font-size:13.5px;line-height:1.5;}
+.ai-coach-text{color:var(--text);white-space:pre-wrap;}
+.ai-coach-error{color:var(--danger);}
+
+/* Reminders */
+.reminder-row{padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}
+.reminder-row:last-of-type{border-bottom:none;}
+.reminder-num{
+  background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+  border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;width:90px;
+}
+
+/* Achievements */
+.achievement-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.badge{
+  display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
+  background:var(--surface-2);border-radius:var(--radius-sm);padding:12px 6px;
+  opacity:.4;filter:grayscale(1);
+}
+.badge.unlocked{opacity:1;filter:none;background:linear-gradient(160deg,var(--surface-2),rgba(255,90,54,.12));}
+.badge-icon{font-size:22px;}
+.badge-name{font-size:10px;color:var(--muted);font-weight:600;line-height:1.25;}
+.badge.unlocked .badge-name{color:var(--text);}
+
 .toast{
   position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);
   background:var(--surface-2);border:1px solid var(--border);color:var(--text);
