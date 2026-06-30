@@ -469,6 +469,7 @@ async function fetchAiCoachSuggestion() {
           maxOutputTokens: 2048,
           responseMimeType: 'application/json',
           responseSchema: MEAL_SUGGESTION_SCHEMA,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     });
@@ -574,6 +575,7 @@ document.getElementById('scanPhotoInput').addEventListener('change', async (e) =
           maxOutputTokens: 1024,
           responseMimeType: 'application/json',
           responseSchema: FOOD_SCAN_SCHEMA,
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
     });
