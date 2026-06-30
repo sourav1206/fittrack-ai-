@@ -355,7 +355,7 @@ function remainingMacros() {
 function buildCoachPrompt() {
   const p = state.profile;
   const rem = remainingMacros();
-  return `I follow a ${p.diet} diet and my goal is ${p.goal}. For the rest of today I have roughly ${rem.calories} kcal, ${rem.protein}g protein, ${rem.carbs}g carbs, and ${rem.fat}g fat left in my targets. Suggest 4 to 5 distinct, specific meal or snack ideas that fit within these remaining macros (each on its own, not meant to be eaten together). For each, estimate its own calories and macros.`;
+  return `I'm based in India and follow a ${p.diet} diet. My goal is ${p.goal}. For the rest of today I have roughly ${rem.calories} kcal, ${rem.protein}g protein, ${rem.carbs}g carbs, and ${rem.fat}g fat left in my targets. Suggest 4 to 5 distinct, specific Indian meal or snack ideas (home-style or commonly available in India — e.g. dal, sabzi, roti, rice, paneer, curd, idli, dosa, sprouts, eggs, chicken curry, etc. depending on my diet) that fit within these remaining macros, using realistic Indian portion sizes (each suggestion is standalone, not meant to be eaten together). For each, estimate its own calories and macros.`;
 }
 
 function safeParseJson(raw) {
