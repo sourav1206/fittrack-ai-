@@ -181,7 +181,7 @@
         <div class="stat-card">
           <span class="stat-label">Streak</span>
           <span class="stat-value" id="statStreak">0🔥</span>
-          <span class="stat-sub">days logged</span>
+          <span class="stat-sub" id="statStreakSub">days logged</span>
         </div>
       </div>
 
@@ -198,6 +198,17 @@
         <div class="card-head"><span>🍽️ Today's AI food suggestions</span><button class="link-btn" id="aiCoachRefreshBtn">Refresh</button></div>
         <div id="aiCoachBody" class="ai-coach-body">
           <p class="muted small">Add your Gemini API key in Settings to get personalized meal ideas.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>💬 Ask your AI coach</span><button class="link-btn" id="clearChatBtn">Clear</button></div>
+        <div id="chatMessages" class="chat-messages">
+          <p class="muted small">Ask anything — "is this a good lunch?", "why am I not losing weight?" — it can see your logged data today.</p>
+        </div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" placeholder="Ask your AI coach..." />
+          <button class="btn-primary chat-send-btn" id="chatSendBtn">Send</button>
         </div>
       </div>
 
@@ -343,6 +354,13 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><span>📊 AI weekly summary</span><button class="link-btn" id="weeklySummaryBtn">Generate</button></div>
+        <div id="weeklySummaryBody" class="ai-coach-body">
+          <p class="muted small">Generates a short readout of your last 7 days — what's going well, what to focus on next.</p>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head"><span>Weight trend</span><span class="muted small" id="weightTrendNote"></span></div>
         <svg id="weightChart" viewBox="0 0 320 140" class="chart-svg"></svg>
       </div>
@@ -356,6 +374,12 @@
       <div class="card">
         <div class="card-head"><span>History</span></div>
         <ul id="weightHistoryList" class="timeline-list"><li class="empty-state">No entries yet.</li></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span>📤 Share your progress</span></div>
+        <p class="muted small">Generate a shareable summary card with your streak, weight change, and achievements.</p>
+        <button class="btn-ghost" id="shareProgressBtn">Generate & share</button>
       </div>
     </section>
 

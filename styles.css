@@ -246,6 +246,20 @@ h2{font-family:var(--font-display);font-size:26px;font-weight:700;margin:8px 0 2
 .legend-coral{background:var(--coral);}
 .legend-teal{background:var(--teal);}
 
+/* Chat coach */
+.chat-messages{max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.chat-bubble{padding:9px 12px;border-radius:var(--radius-sm);font-size:13.5px;line-height:1.45;max-width:88%;white-space:pre-wrap;}
+.chat-user{align-self:flex-end;background:var(--coral);color:#fff;}
+.chat-model{align-self:flex-start;background:var(--surface-2);color:var(--text);}
+.chat-pending{opacity:.6;}
+.chat-input-row{display:flex;gap:8px;}
+.chat-input-row input{
+  flex:1;background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+  border-radius:var(--radius-sm);padding:10px 14px;font-size:13.5px;outline:none;
+}
+.chat-input-row input:focus{border-color:var(--coral);}
+.chat-send-btn{width:auto;padding:10px 18px;}
+
 /* Bottom nav */
 .bottom-nav{
   position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;

@@ -18,6 +18,8 @@ function defaultState() {
     days: {}, // dateKey -> { meals:[], workouts:[], waterGlasses:0 }
     geminiKey: '',
     aiCoach: { date: null, items: null, error: '' },
+    weeklySummary: { weekKey: null, text: '', error: '' },
+    aiChatHistory: [], // [{role:'user'|'model', text}]
     workoutPlanProgress: {}, // dateKey -> { exerciseIndex: true }
     reminders: {
       waterEnable: false, waterMinutes: 60,
@@ -43,6 +45,7 @@ function loadState() {
     // nested config objects so new sub-fields always get their default.
     merged.reminders = { ...defaults.reminders, ...(parsed.reminders || {}) };
     merged.aiCoach = { ...defaults.aiCoach, ...(parsed.aiCoach || {}) };
+    merged.weeklySummary = { ...defaults.weeklySummary, ...(parsed.weeklySummary || {}) };
     return merged;
   } catch (e) {
     return defaultState();
@@ -269,21 +272,48 @@ function renderStats() {
   const day = getDay();
   document.getElementById('statWater').textContent = `${day.waterGlasses}/${p.calcs.waterGlasses}`;
   document.getElementById('statStreak').textContent = `${computeStreak()}🔥`;
+  document.getElementById('statStreakSub').textContent = weeklyFreezeAvailable() ? 'days logged · ❄️ freeze ready' : 'days logged · freeze used';
+}
+
+function isDayActive(key) {
+  const day = state.days[key];
+  return !!(day && (day.meals.length || day.workouts.length || day.waterGlasses > 0));
 }
 
 function computeStreak() {
   let streak = 0;
   let d = new Date();
+  const freezeUsedByWeek = {};
+  let first = true;
   while (true) {
     const key = d.toISOString().slice(0, 10);
-    const day = state.days[key];
-    const active = day && (day.meals.length || day.workouts.length || day.waterGlasses > 0);
-    if (active) {
+    if (isDayActive(key)) {
       streak++;
       d.setDate(d.getDate() - 1);
-    } else break;
+      first = false;
+      continue;
+    }
+    if (first) break; // today not logged yet — matches prior behavior, no freeze spent on it
+    const wk = weekKey(d);
+    if (!freezeUsedByWeek[wk]) {
+      freezeUsedByWeek[wk] = true; // one grace day per week — streak doesn't break, doesn't increment either
+      d.setDate(d.getDate() - 1);
+      continue;
+    }
+    break;
   }
   return streak;
+}
+
+function weeklyFreezeAvailable() {
+  const wk = weekKey(new Date());
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    if (weekKey(d) !== wk) break;
+    if (!isDayActive(d.toISOString().slice(0, 10))) return false;
+  }
+  return true;
 }
 
 function renderHealthScore() {
@@ -346,6 +376,7 @@ function renderDashboard() {
   renderHealthScore();
   renderTimeline();
   renderAiCoachState();
+  renderChatMessages();
 }
 
 /* ===================== AI FOOD COACH ===================== */
@@ -682,6 +713,84 @@ document.getElementById('voiceLogBtn').addEventListener('click', async () => {
   recognition.onend = () => {
     if (statusEl.textContent === 'Listening… speak now.') statusEl.textContent = 'No speech detected. Try again.';
   };
+});
+
+/* ===================== AI CHAT COACH ===================== */
+function buildChatSystemInstruction() {
+  const p = state.profile;
+  const totals = todayTotals();
+  const rem = remainingMacros();
+  const day = getDay();
+  const recentMeals = day.meals.map((m) => `${m.name} (${m.cal} kcal)`).join(', ') || 'none yet';
+  return `You are a friendly, practical fitness and nutrition coach for an Indian user. Their profile: age ${p.age}, gender ${p.gender}, goal ${p.goal}, diet ${p.diet}, activity level. Today's targets: ${p.calcs.calories} kcal, ${p.calcs.protein}g protein, ${p.calcs.carbs}g carbs, ${p.calcs.fat}g fat. Logged so far today: ${Math.round(totals.cal)} kcal, ${Math.round(totals.protein)}g protein, meals: ${recentMeals}. Remaining today: ${rem.calories} kcal, ${rem.protein}g protein. Water: ${day.waterGlasses}/${p.calcs.waterGlasses} glasses. Workouts logged today: ${day.workouts.length}. Answer the user's question directly and concisely (under 100 words unless they ask for detail), using this data when relevant. Prefer Indian food references. Plain text only, no markdown.`;
+}
+
+function renderChatMessages() {
+  const box = document.getElementById('chatMessages');
+  if (!state.aiChatHistory.length) {
+    box.innerHTML = '<p class="muted small">Ask anything — "is this a good lunch?", "why am I not losing weight?" — it can see your logged data today.</p>';
+    return;
+  }
+  box.innerHTML = state.aiChatHistory
+    .map((m) => `<div class="chat-bubble chat-${m.role}">${escapeHtml(m.text)}</div>`)
+    .join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!state.geminiKey) {
+    toast('Add your Gemini API key in Settings first.');
+    return;
+  }
+  state.aiChatHistory.push({ role: 'user', text });
+  input.value = '';
+  renderChatMessages();
+  document.getElementById('chatMessages').insertAdjacentHTML('beforeend', '<div class="chat-bubble chat-model chat-pending">Thinking…</div>');
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiKey)}`;
+    const recentHistory = state.aiChatHistory.slice(-20);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: buildChatSystemInstruction() }] },
+        contents: recentHistory.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
+        generationConfig: { maxOutputTokens: 600, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).error?.message || ''; } catch (e) {}
+      throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+    }
+    const data = await res.json();
+    const candidate = data.candidates?.[0];
+    const reply = candidate?.finishReason === 'MAX_TOKENS'
+      ? 'My answer got cut off — try asking again, maybe more briefly.'
+      : ((candidate?.content?.parts || []).map((p) => p.text || '').join('').trim() || 'No response.');
+    state.aiChatHistory.push({ role: 'model', text: reply });
+    if (state.aiChatHistory.length > 40) state.aiChatHistory = state.aiChatHistory.slice(-40);
+    saveState();
+    renderChatMessages();
+  } catch (err) {
+    state.aiChatHistory.push({ role: 'model', text: err.message || 'Could not reach the AI coach.' });
+    saveState();
+    renderChatMessages();
+  }
+}
+
+document.getElementById('chatSendBtn').addEventListener('click', sendChatMessage);
+document.getElementById('chatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendChatMessage();
+});
+document.getElementById('clearChatBtn').addEventListener('click', () => {
+  state.aiChatHistory = [];
+  saveState();
+  renderChatMessages();
 });
 
 /* ===================== INDIAN QUICK ADD ===================== */
@@ -1176,6 +1285,173 @@ function renderWeightChart() {
   });
 }
 
+/* ===================== AI WEEKLY SUMMARY ===================== */
+function buildWeeklySummaryPrompt() {
+  const p = state.profile;
+  let totalCal = 0, totalProtein = 0, daysLogged = 0, workoutDays = 0, waterHits = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const day = state.days[key];
+    if (!day) continue;
+    const cal = day.meals.reduce((s, m) => s + (m.cal || 0), 0);
+    const protein = day.meals.reduce((s, m) => s + (m.protein || 0), 0);
+    if (cal > 0 || day.workouts.length || day.waterGlasses > 0) daysLogged++;
+    totalCal += cal;
+    totalProtein += protein;
+    if (day.workouts.length) workoutDays++;
+    if (day.waterGlasses >= p.calcs.waterGlasses) waterHits++;
+  }
+  const weekAgo = Date.now() - 7 * 86400000;
+  const weightEntries = state.weightHistory.filter((w) => new Date(w.date).getTime() >= weekAgo);
+  const weightChange = weightEntries.length >= 2 ? weightEntries[weightEntries.length - 1].weight - weightEntries[0].weight : null;
+  const avgCal = daysLogged ? Math.round(totalCal / daysLogged) : 0;
+  const avgProtein = daysLogged ? Math.round(totalProtein / daysLogged) : 0;
+
+  return `I'm in India, my goal is ${p.goal}. Over the last 7 days: logged data on ${daysLogged}/7 days, averaged ${avgCal} kcal/day on days I logged (target ${p.calcs.calories}), averaged ${avgProtein}g protein/day (target ${p.calcs.protein}g), worked out on ${workoutDays}/7 days, hit my water goal on ${waterHits}/7 days${weightChange !== null ? `, weight changed by ${weightChange.toFixed(1)}kg this week` : ''}. Write a short, encouraging weekly readout (under 90 words, plain text, no markdown): 1-2 sentences on what went well, then one specific, actionable focus for next week.`;
+}
+
+function renderWeeklySummaryBody(html) {
+  document.getElementById('weeklySummaryBody').innerHTML = html;
+}
+
+function renderWeeklySummaryState() {
+  if (!state.geminiKey) {
+    renderWeeklySummaryBody('<p class="muted small">Add your Gemini API key in Settings to generate a weekly summary.</p>');
+    return;
+  }
+  const cached = state.weeklySummary;
+  const wk = weekKey(new Date());
+  if (cached.error && cached.weekKey === wk) {
+    renderWeeklySummaryBody(`<p class="ai-coach-error small">${escapeHtml(cached.error)}</p>`);
+    return;
+  }
+  if (cached.text && cached.weekKey === wk) {
+    renderWeeklySummaryBody(`<p class="ai-coach-text">${escapeHtml(cached.text)}</p>`);
+    return;
+  }
+  renderWeeklySummaryBody('<p class="muted small">Generates a short readout of your last 7 days — what\'s going well, what to focus on next.</p>');
+}
+
+async function fetchWeeklySummary() {
+  if (!state.geminiKey) {
+    renderWeeklySummaryState();
+    return;
+  }
+  renderWeeklySummaryBody('<p class="muted small">Crunching your week…</p>');
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(state.geminiKey)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: buildWeeklySummaryPrompt() }] }],
+        generationConfig: { maxOutputTokens: 600, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.json()).error?.message || ''; } catch (e) {}
+      throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+    }
+    const data = await res.json();
+    const candidate = data.candidates?.[0];
+    if (candidate?.finishReason === 'MAX_TOKENS') throw new Error('Response was cut off — try again.');
+    const text = (candidate?.content?.parts || []).map((p) => p.text || '').join('').trim() || 'No summary returned.';
+    state.weeklySummary = { weekKey: weekKey(new Date()), text, error: '' };
+    saveState();
+    renderWeeklySummaryState();
+  } catch (err) {
+    state.weeklySummary = { weekKey: weekKey(new Date()), text: '', error: err.message || 'Could not generate summary.' };
+    saveState();
+    renderWeeklySummaryState();
+  }
+}
+
+document.getElementById('weeklySummaryBtn').addEventListener('click', fetchWeeklySummary);
+
+/* ===================== SHARE PROGRESS ===================== */
+function generateProgressImage() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 720;
+  canvas.height = 720;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createLinearGradient(0, 0, 720, 720);
+  grad.addColorStop(0, '#11141A');
+  grad.addColorStop(1, '#1B1F27');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 720, 720);
+
+  ctx.fillStyle = '#FF5A36';
+  ctx.font = 'bold 40px sans-serif';
+  ctx.fillText('🔥 FitTrack AI', 40, 70);
+
+  ctx.fillStyle = '#F3F4F6';
+  ctx.font = '24px sans-serif';
+  ctx.fillText(`${state.profile.name}'s Progress`, 40, 112);
+
+  ctx.fillStyle = '#8B92A3';
+  ctx.font = '16px sans-serif';
+  ctx.fillText(new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), 40, 138);
+
+  const streak = computeStreak();
+  const weights = [...state.weightHistory].sort((a, b) => a.date.localeCompare(b.date));
+  const weightChange = weights.length >= 2 ? Math.round((weights[weights.length - 1].weight - weights[0].weight) * 10) / 10 : 0;
+  const achievements = computeAchievements();
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+
+  const stats = [
+    [`${streak}🔥`, 'Day streak'],
+    [`${weightChange > 0 ? '+' : ''}${weightChange}kg`, 'Weight change'],
+    [`${unlockedCount}/${achievements.length}`, 'Achievements unlocked'],
+  ];
+  let y = 230;
+  stats.forEach(([value, label]) => {
+    ctx.fillStyle = '#FF5A36';
+    ctx.font = 'bold 56px sans-serif';
+    ctx.fillText(value, 40, y);
+    ctx.fillStyle = '#8B92A3';
+    ctx.font = '18px sans-serif';
+    ctx.fillText(label, 40, y + 30);
+    y += 130;
+  });
+
+  ctx.fillStyle = '#8B92A3';
+  ctx.font = '14px sans-serif';
+  ctx.fillText('Made with FitTrack AI', 40, 690);
+
+  return canvas;
+}
+
+function shareProgressImage() {
+  const canvas = generateProgressImage();
+  canvas.toBlob(async (blob) => {
+    if (!blob) {
+      toast('Could not generate image.');
+      return;
+    }
+    const file = new File([blob], 'fittrack-progress.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: 'My FitTrack Progress' });
+        return;
+      } catch (e) {
+        // user cancelled share — fall through to download
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fittrack-progress.png';
+    a.click();
+    URL.revokeObjectURL(url);
+  }, 'image/png');
+}
+
+document.getElementById('shareProgressBtn').addEventListener('click', shareProgressImage);
+
 /* ===================== SETTINGS ===================== */
 function renderCalcNumbers() {
   const c = state.profile.calcs;
@@ -1413,6 +1689,7 @@ function renderAll() {
   renderCalcNumbers();
   renderGeminiKeyStatus();
   renderReminderForm();
+  renderWeeklySummaryState();
 }
 
 /* ===================== INIT ===================== */
