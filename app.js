@@ -397,6 +397,12 @@ function buildCoachPrompt() {
   return `I'm based in India and follow a ${p.diet} diet. My goal is ${p.goal}. For the rest of today I have roughly ${rem.calories} kcal, ${rem.protein}g protein, ${rem.carbs}g carbs, and ${rem.fat}g fat left in my targets. Suggest 4 to 5 distinct, specific Indian meal or snack ideas ONLY — home-style or commonly available in India (e.g. dal, sabzi, roti, rice, paneer, curd, idli, dosa, sprouts, eggs, chicken curry, biryani, poha, upma, etc. depending on my diet). Do NOT suggest any Western, Continental, or other non-Indian dishes (no pasta, sandwiches, smoothie bowls, oatmeal, salads with non-Indian dressings, etc.) — every option must be a dish genuinely eaten in Indian households or available at Indian restaurants/street food. Use realistic Indian portion sizes; each suggestion is standalone, not meant to be eaten together. For each, estimate its own calories and macros.`;
 }
 
+function geminiErrorMessage(res, detail) {
+  if (res.status === 429) return "Gemini's free daily limit is reached (20 requests/day) — try again tomorrow, or add billing in Google AI Studio for higher limits.";
+  if (res.status === 400 || res.status === 403) return 'Invalid API key — check it in Settings.';
+  return detail || `Request failed (${res.status}).`;
+}
+
 function safeParseJson(raw) {
   let text = (raw || '').trim();
   text = text.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
@@ -515,7 +521,7 @@ async function fetchAiCoachSuggestion() {
     if (!res.ok) {
       let detail = '';
       try { detail = (await res.json()).error?.message || ''; } catch (e) {}
-      throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+      throw new Error(geminiErrorMessage(res, detail));
     }
     const data = await res.json();
     const candidate = data.candidates?.[0];
@@ -621,7 +627,7 @@ document.getElementById('scanPhotoInput').addEventListener('change', async (e) =
     if (!res.ok) {
       let detail = '';
       try { detail = (await res.json()).error?.message || ''; } catch (err) {}
-      throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+      throw new Error(geminiErrorMessage(res, detail));
     }
     const data = await res.json();
     const candidate = data.candidates?.[0];
@@ -656,7 +662,7 @@ async function estimateFoodFromText(description) {
   if (!res.ok) {
     let detail = '';
     try { detail = (await res.json()).error?.message || ''; } catch (err) {}
-    throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+    throw new Error(geminiErrorMessage(res, detail));
   }
   const data = await res.json();
   const candidate = data.candidates?.[0];
@@ -765,7 +771,7 @@ async function sendChatMessage() {
     if (!res.ok) {
       let detail = '';
       try { detail = (await res.json()).error?.message || ''; } catch (e) {}
-      throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+      throw new Error(geminiErrorMessage(res, detail));
     }
     const data = await res.json();
     const candidate = data.candidates?.[0];
@@ -1353,7 +1359,7 @@ async function fetchWeeklySummary() {
     if (!res.ok) {
       let detail = '';
       try { detail = (await res.json()).error?.message || ''; } catch (e) {}
-      throw new Error(res.status === 400 || res.status === 403 ? 'Invalid API key — check it in Settings.' : (detail || `Request failed (${res.status}).`));
+      throw new Error(geminiErrorMessage(res, detail));
     }
     const data = await res.json();
     const candidate = data.candidates?.[0];
